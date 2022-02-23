@@ -5,6 +5,10 @@
 using namespace cv;
 
 // All or most of the below is lifted from https://stackoverflow.com/a/34720686
+// Changes by me: The function definition was changed a bit from inline and put into a header file
+// Original code written by Emiswelt in 2016 and edited by Peter Mortensen in 2022
+// Has CC BY SA License as described here: https://stackoverflow.com/legal/terms-of-service/public#licensing 
+
 
 // Define our six cube faces.
 // 0 - 3 are side faces, clockwise order
