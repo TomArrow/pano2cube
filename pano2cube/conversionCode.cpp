@@ -1,5 +1,10 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <opencv2/imgproc/imgproc.hpp>
+
+using namespace cv;
+
+// All or most of the below is lifted from https://stackoverflow.com/a/34720686
 
 // Define our six cube faces.
 // 0 - 3 are side faces, clockwise order
@@ -17,9 +22,9 @@ float faceTransform[6][2] =
 // Map a part of the equirectangular panorama (in) to a cube face
 // (face). The ID of the face is given by faceId. The desired
 // width and height are given by width and height.
-inline void createCubeMapFace(const Mat& in, Mat& face,
-    int faceId = 0, const int width = -1,
-    const int height = -1) {
+void createCubeMapFace(const Mat& in, Mat& face,
+    int faceId, const int width,
+    const int height) {
 
     float inWidth = in.cols;
     float inHeight = in.rows;
@@ -119,5 +124,5 @@ inline void createCubeMapFace(const Mat& in, Mat& face,
 
     // Do actual resampling using OpenCV's remap
     remap(in, face, mapx, mapy,
-        CV_INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+        INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 }
