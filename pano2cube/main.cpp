@@ -7,8 +7,8 @@ using namespace cv;
 
 const char* faceNames[6] =
 {
-	"lf","bk","rt",
-	"ft","up","dn"
+	"ft","lf","bk",
+	"rt","up","dn"
 };
 
 int main(int argc, char* argv[]) {
