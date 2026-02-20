@@ -11,3 +11,7 @@ using namespace cv;
 void createCubeMapFace(const Mat& in, Mat& face,
     int faceId = 0, const int width = -1,
     const int height = -1);
+
+void createCloudMapFace(const Mat& in, Mat& face,
+    int cloudHeight, const int width,
+    const int height);
