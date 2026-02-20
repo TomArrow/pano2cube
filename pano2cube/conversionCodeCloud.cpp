@@ -106,7 +106,7 @@ void createCloudMapFace(const Mat& in, Mat& face,
 
             float u, v;
 
-            u = yaw;
+            u = yaw + M_PI; // turn it 180 to align it with the cubemap generatioon
             v = -pitch;
 
             // Map from angular coordinates to [-1, 1], respectively.
