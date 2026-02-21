@@ -13,5 +13,5 @@ void createCubeMapFace(const Mat& in, Mat& face,
     const int height = -1);
 
 void createCloudMapFace(const Mat& in, Mat& face,
-    int cloudHeight, const int width,
+    int cloudHeight, bool transform, const int width,
     const int height);

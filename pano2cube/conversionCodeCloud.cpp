@@ -9,9 +9,11 @@ using namespace cv;
 // But changed to use the spherical cloud projection for the output as ingame for cloud layers
 
 
+// TODO try a variant with tcmod rotate so we can use the whole image?
+// or tcMod transform m00 m01 m10 m11 t0 t1? since rotate is time based
 
 void createCloudMapFace(const Mat& in, Mat& face,
-    int cloudHeight, const int width,
+    int cloudHeight, bool transform, const int width,
     const int height) {
 
     float inWidth = in.cols;
@@ -20,15 +22,6 @@ void createCloudMapFace(const Mat& in, Mat& face,
     // Allocate map
     Mat mapx(height, width, CV_32F);
     Mat mapy(height, width, CV_32F);
-
-    // Calculate adjacent (ak) and opposite (an) of the
-    // triangle that is spanned from the sphere center
-    //to our cube face.
-    const float an = sin(M_PI / 4);
-    const float ak = cos(M_PI / 4);
-
-    //const float ftu = faceTransform[faceId][0];
-    //const float ftv = faceTransform[faceId][1];
 
     float radiusWorld = 4096;
     float cloudRadius = radiusWorld + cloudHeight;
@@ -42,8 +35,18 @@ void createCloudMapFace(const Mat& in, Mat& face,
             float tSrc = (float)y / (float)(height - 1);
 
             // assume we use tcmod scale 1/pi
-            float sRad = sSrc * M_PI;
-            float tRad = tSrc * M_PI;
+            float sRad, tRad;
+            if (transform) { 
+                // rotated 45 degrees & scaled
+                // ingame needs inverse:
+                // tcMod transform 0.31830988618379067153776752674503 -0.31830988618379067153776752674503 0.31830988618379067153776752674503 0.31830988618379067153776752674503 -0.5 0.5
+                sRad = sSrc * 1.5707963267948966192313216916398 + tSrc * 1.5707963267948966192313216916398;
+                tRad = sSrc * -1.5707963267948966192313216916398 + tSrc * 1.5707963267948966192313216916398 + 1.5707963267948966192313216916398;
+            }
+            else {
+                sRad = sSrc * M_PI;
+                tRad = tSrc * M_PI;
+            }
 
             // create the vector that will point in the direction we want our value from
             float vector[3];

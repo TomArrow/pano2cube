@@ -17,6 +17,7 @@ int main(int argcO, char** argvO) {
 
 	popl::OptionParser op("Allowed options");
 	auto c = op.add<popl::Implicit<int>>("c", "cloud", "Generate an image for a cloud layer instead of six cube faces",512);
+	auto n = op.add<popl::Switch>("n", "no-transform-cloud", "The resulting cloud image will not require tcMod transform, only tcMod scale");
 	op.parse(argcO, argvO);
 	auto args = op.non_option_args();
 
@@ -27,6 +28,7 @@ int main(int argcO, char** argvO) {
 	}
 
 	int cloudHeight = c->is_set() ? c->value() : 0;
+	bool doCloudTransform = !n->is_set();
 
 	std::string filenameToLoad(args[0]);
 	int sideResolution = atoi(args[1].c_str());
@@ -66,9 +68,14 @@ int main(int argcO, char** argvO) {
 		ss << "_cloud";
 		ss << ".hdr";
 		Mat face(sideResolution, sideResolution, CV_32F);
-		createCloudMapFace(img, face, cloudHeight, sideResolution, sideResolution);
+		createCloudMapFace(img, face, cloudHeight, doCloudTransform, sideResolution, sideResolution);
 		imwrite(ss.str(), face);
-		std::cout << "dont forget: \ntcMod scale 0.31830988618379067153776752674503 0.31830988618379067153776752674503 and cloud height " << cloudHeight << "\n";
+		if (doCloudTransform) {
+			std::cout << "dont forget: \ntcMod transform 0.31830988618379067153776752674503 -0.31830988618379067153776752674503 0.31830988618379067153776752674503 0.31830988618379067153776752674503 -0.5 0.5 and cloud height " << cloudHeight << "\n";
+		}
+		else {
+			std::cout << "dont forget: \ntcMod scale 0.31830988618379067153776752674503 0.31830988618379067153776752674503 and cloud height " << cloudHeight << "\n";
+		}
 	}
 	else {
 		for (int i = 0; i < 6; i++) {
