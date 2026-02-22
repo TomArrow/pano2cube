@@ -20,3 +20,7 @@ void createCloudMapFace(const Mat& in, Mat& face,
 void createEquirectFromCubeFaces(const Mat in[6], Mat& out,
     const int width,
     const int height);
+
+void createReflectionMapVariant(const Mat& in, Mat& face,
+    int sign, const int width,
+    const int height);

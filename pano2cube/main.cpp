@@ -12,6 +12,12 @@ const char* faceNames[6] =
 	"rt","up","dn"
 };
 
+
+// TODO do a tcgen environment kinda hack so we can do a projection that fits that? for suitable reflections for a given skybox?
+// however i think it only encodes a half circle since the worldspace reflection ray vector[1] and [2] become the uv coords.
+// aka 
+// st[0] = 0.5 + reflected[1] * 0.5;
+// st[1] = 0.5 - reflected[2] * 0.5;
 int main(int argcO, char** argvO) {
 
 
@@ -19,6 +25,7 @@ int main(int argcO, char** argvO) {
 	auto e = op.add<popl::Switch>("e", "equirect-from-cubemap", "Generate an equirectangular image from six cube faces (inverse mode)");
 	auto c = op.add<popl::Implicit<int>>("c", "cloud", "Generate an image for a cloud layer instead of six cube faces",512);
 	auto n = op.add<popl::Switch>("n", "no-transform-cloud", "The resulting cloud image will not require tcMod transform, only tcMod scale");
+	auto r = op.add<popl::Switch>("r", "reflection", "Turn equirectangular into a refletionmap for tcgen environment. Since it only encodes a half circle, you get 2 variants (one side will always be mirrored to the other).");
 	op.parse(argcO, argvO);
 	auto args = op.non_option_args();
 
@@ -28,6 +35,7 @@ int main(int argcO, char** argvO) {
 		return 1;
 	}
 
+	bool doReflection = r->is_set();
 	bool doInverse = e->is_set();
 	int cloudHeight = c->is_set() ? c->value() : 0;
 	bool doCloudTransform = !n->is_set();
@@ -87,8 +95,20 @@ int main(int argcO, char** argvO) {
 			std::cout << "Unable to open specified source image.";
 			return 1;
 		}
-
-		if (cloudHeight) {
+		
+		if (doReflection) {
+			for (int i = 0; i < 2; i++) {
+				std::stringstream ss;
+				ss << prefix;
+				ss << "_env";
+				ss << (i+1);
+				ss << ".hdr";
+				Mat face(sideResolution, sideResolution, CV_32F);
+				createReflectionMapVariant(img,face, i == 0 ? 1 : -1, sideResolution, sideResolution);
+				imwrite(ss.str(), face);
+			}
+		}
+		else if (cloudHeight) {
 			std::stringstream ss;
 			ss << prefix;
 			ss << "_cloud";
