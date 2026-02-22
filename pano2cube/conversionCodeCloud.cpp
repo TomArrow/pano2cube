@@ -9,9 +9,6 @@ using namespace cv;
 // But changed to use the spherical cloud projection for the output as ingame for cloud layers
 
 
-// TODO try a variant with tcmod rotate so we can use the whole image?
-// or tcMod transform m00 m01 m10 m11 t0 t1? since rotate is time based
-
 void createCloudMapFace(const Mat& in, Mat& face,
     int cloudHeight, bool transform, const int width,
     const int height) {

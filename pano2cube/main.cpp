@@ -16,6 +16,7 @@ int main(int argcO, char** argvO) {
 
 
 	popl::OptionParser op("Allowed options");
+	auto e = op.add<popl::Switch>("e", "equirect-from-cubemap", "Generate an equirectangular image from six cube faces (inverse mode)");
 	auto c = op.add<popl::Implicit<int>>("c", "cloud", "Generate an image for a cloud layer instead of six cube faces",512);
 	auto n = op.add<popl::Switch>("n", "no-transform-cloud", "The resulting cloud image will not require tcMod transform, only tcMod scale");
 	op.parse(argcO, argvO);
@@ -27,6 +28,7 @@ int main(int argcO, char** argvO) {
 		return 1;
 	}
 
+	bool doInverse = e->is_set();
 	int cloudHeight = c->is_set() ? c->value() : 0;
 	bool doCloudTransform = !n->is_set();
 
@@ -35,58 +37,83 @@ int main(int argcO, char** argvO) {
 	std::string prefix(args[2]);
 	float rotation = args.size() > 3 ? atof(args[3].c_str()) : 0.0f;
 
-	Mat img = imread(filenameToLoad,IMREAD_UNCHANGED);
+	if (doInverse) {
+		Mat imgs[6];
 
-	if (img.empty()) {
-		std::cout << "Unable to open specified source image.";
-		return 1;
-	}
-
-	// Should we rotate?
-	if (rotation != 0.0f) {
-
-		// Normalize rotation
-		while (rotation >= 360.0f) {
-			rotation -= 360.0f;
-		}
-		while (rotation < 0.0f) {
-			rotation += 360.0f;
-		}
-		int rotationCols = ((rotation / 360.0f) * (float)img.cols + 0.5f);
-		if (rotationCols > 0 && rotationCols < img.cols) { // If nothing at all changes, why bother.
-			Mat tmp = img.clone();
-			img.colRange(0, img.cols - rotationCols).copyTo(tmp.colRange(rotationCols, img.cols));
-			img.colRange(img.cols - rotationCols, img.cols).copyTo(tmp.colRange(0, rotationCols));
-			img.release();
-			img = tmp;
-		}
-	}
-
-	if (cloudHeight) {
-		std::stringstream ss;
-		ss << prefix;
-		ss << "_cloud";
-		ss << ".hdr";
-		Mat face(sideResolution, sideResolution, CV_32F);
-		createCloudMapFace(img, face, cloudHeight, doCloudTransform, sideResolution, sideResolution);
-		imwrite(ss.str(), face);
-		if (doCloudTransform) {
-			std::cout << "dont forget: \ntcMod transform 0.31830988618379067153776752674503 -0.31830988618379067153776752674503 0.31830988618379067153776752674503 0.31830988618379067153776752674503 -0.5 0.5 and cloud height " << cloudHeight << "\n";
-		}
-		else {
-			std::cout << "dont forget: \ntcMod scale 0.31830988618379067153776752674503 0.31830988618379067153776752674503 and cloud height " << cloudHeight << "\n";
-		}
-	}
-	else {
 		for (int i = 0; i < 6; i++) {
 			std::stringstream ss;
 			ss << prefix;
 			ss << "_";
 			ss << faceNames[i];
 			ss << ".hdr";
+			imgs[i] = imread(ss.str(), IMREAD_UNCHANGED);
+			if (imgs[i].empty()) {
+				std::cout << "Unable to open specified source image: " << ss.str();
+				return 1;
+			}
+		}
+		Mat output(sideResolution/2, sideResolution, CV_32F);
+		createEquirectFromCubeFaces(imgs, output, sideResolution, sideResolution / 2);
+
+
+		// Should we rotate?
+		if (rotation != 0.0f) {
+			rotation = -rotation;
+
+			// Normalize rotation
+			while (rotation >= 360.0f) {
+				rotation -= 360.0f;
+			}
+			while (rotation < 0.0f) {
+				rotation += 360.0f;
+			}
+			int rotationCols = ((rotation / 360.0f) * (float)output.cols + 0.5f);
+			if (rotationCols > 0 && rotationCols < output.cols) { // If nothing at all changes, why bother.
+				Mat tmp = output.clone();
+				output.colRange(0, output.cols - rotationCols).copyTo(tmp.colRange(rotationCols, output.cols));
+				output.colRange(output.cols - rotationCols, output.cols).copyTo(tmp.colRange(0, rotationCols));
+				output.release();
+				output = tmp;
+			}
+		}
+
+		imwrite(filenameToLoad, output);
+	}
+	else {
+
+		Mat img = imread(filenameToLoad, IMREAD_UNCHANGED);
+
+		if (img.empty()) {
+			std::cout << "Unable to open specified source image.";
+			return 1;
+		}
+
+		if (cloudHeight) {
+			std::stringstream ss;
+			ss << prefix;
+			ss << "_cloud";
+			ss << ".hdr";
 			Mat face(sideResolution, sideResolution, CV_32F);
-			createCubeMapFace(img, face, i, sideResolution, sideResolution);
+			createCloudMapFace(img, face, cloudHeight, doCloudTransform, sideResolution, sideResolution);
 			imwrite(ss.str(), face);
+			if (doCloudTransform) {
+				std::cout << "dont forget: \ntcMod transform 0.31830988618379067153776752674503 -0.31830988618379067153776752674503 0.31830988618379067153776752674503 0.31830988618379067153776752674503 -0.5 0.5 and cloud height " << cloudHeight << "\n";
+			}
+			else {
+				std::cout << "dont forget: \ntcMod scale 0.31830988618379067153776752674503 0.31830988618379067153776752674503 and cloud height " << cloudHeight << "\n";
+			}
+		}
+		else {
+			for (int i = 0; i < 6; i++) {
+				std::stringstream ss;
+				ss << prefix;
+				ss << "_";
+				ss << faceNames[i];
+				ss << ".hdr";
+				Mat face(sideResolution, sideResolution, CV_32F);
+				createCubeMapFace(img, face, i, sideResolution, sideResolution);
+				imwrite(ss.str(), face);
+			}
 		}
 	}
 

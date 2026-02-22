@@ -161,6 +161,7 @@
   <ItemGroup>
     <ClCompile Include="conversionCode.cpp" />
     <ClCompile Include="conversionCodeCloud.cpp" />
+    <ClCompile Include="conversionCodeInverse.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
