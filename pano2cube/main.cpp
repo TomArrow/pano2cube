@@ -31,6 +31,7 @@ int main(int argcO, char** argvO) {
 
 	if (args.size() < 3) {
 		std::cout << "Need at least 3 arguments: Input file, side resolution, prefix[, rotation]";
+		std::cout << op.help();
 		std::cin.get();
 		return 1;
 	}
@@ -94,6 +95,26 @@ int main(int argcO, char** argvO) {
 		if (img.empty()) {
 			std::cout << "Unable to open specified source image.";
 			return 1;
+		}
+
+		// Should we rotate?
+		if (rotation != 0.0f) {
+
+			// Normalize rotation
+			while (rotation >= 360.0f) {
+				rotation -= 360.0f;
+			}
+			while (rotation < 0.0f) {
+				rotation += 360.0f;
+			}
+			int rotationCols = ((rotation / 360.0f) * (float)img.cols + 0.5f);
+			if (rotationCols > 0 && rotationCols < img.cols) { // If nothing at all changes, why bother.
+				Mat tmp = img.clone();
+				img.colRange(0, img.cols - rotationCols).copyTo(tmp.colRange(rotationCols, img.cols));
+				img.colRange(img.cols - rotationCols, img.cols).copyTo(tmp.colRange(0, rotationCols));
+				img.release();
+				img = tmp;
+			}
 		}
 		
 		if (doReflection) {

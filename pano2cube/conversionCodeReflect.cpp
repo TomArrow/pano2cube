@@ -9,6 +9,8 @@ using namespace cv;
 // But changed to use tcgen environment style mapping
 
 
+// TODO use the fast inverse square root to mimic the q3 engine behavior more closely?
+
 // sign distinguishes which side of the half circle we should use
 void createReflectionMapVariant(const Mat& in, Mat& face,
     int sign, const int width,
@@ -91,6 +93,8 @@ void createReflectionMapVariant(const Mat& in, Mat& face,
             u = yaw;
             v = -pitch;
 
+            u += 0.5f * M_PI; // rotate 90 degrees to align with typical skybox/viewdir in jk2. so that we get the expected reflection with a skybox-oriented source
+
             // Map from angular coordinates to [-1, 1], respectively.
             u = u / (M_PI);
             v = v / (M_PI / 2);
@@ -115,6 +119,10 @@ void createReflectionMapVariant(const Mat& in, Mat& face,
             // Map from [-1, 1] to in texture space
             u = u / 2.0f + 0.5f;
             v = v / 2.0f + 0.5f;
+
+            //if (sign != -1) {
+                u = 1.0f - u; // it's a reflection. so mirror it.
+            //}
 
             u = u * (inWidth - 1);
             v = v * (inHeight - 1);
