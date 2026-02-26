@@ -22,7 +22,7 @@ int main(int argcO, char** argvO) {
 
 
 	popl::OptionParser op("Allowed options");
-	auto e = op.add<popl::Switch>("e", "equirect-from-cubemap", "Generate an equirectangular image from six cube faces (inverse mode)");
+	auto e = op.add<popl::Implicit<int>>("e", "equirect-from-cubemap", "Generate an equirectangular image from six cube faces (inverse mode). Optional: 0 for jk2 style cubmaps. 1 for vue 'Horizontal Front Main' cubemaps. For single image sources, the full source image filename should be specified as prefix.",0);
 	auto c = op.add<popl::Implicit<int>>("c", "cloud", "Generate an image for a cloud layer instead of six cube faces",512);
 	auto n = op.add<popl::Switch>("n", "no-transform-cloud", "The resulting cloud image will not require tcMod transform, only tcMod scale");
 	auto r = op.add<popl::Switch>("r", "reflection", "Turn equirectangular into a refletionmap for tcgen environment. Since it only encodes a half circle, you get 2 variants (one side will always be mirrored to the other).");
@@ -38,6 +38,7 @@ int main(int argcO, char** argvO) {
 
 	bool doReflection = r->is_set();
 	bool doInverse = e->is_set();
+	bool doInverseVueHorizontalFrontMain = e->is_set() && e->value() == 1;
 	int cloudHeight = c->is_set() ? c->value() : 0;
 	bool doCloudTransform = !n->is_set();
 
@@ -49,16 +50,106 @@ int main(int argcO, char** argvO) {
 	if (doInverse) {
 		Mat imgs[6];
 
-		for (int i = 0; i < 6; i++) {
-			std::stringstream ss;
-			ss << prefix;
-			ss << "_";
-			ss << faceNames[i];
-			ss << ".hdr";
-			imgs[i] = imread(ss.str(), IMREAD_UNCHANGED);
-			if (imgs[i].empty()) {
-				std::cout << "Unable to open specified source image: " << ss.str();
+		if (doInverseVueHorizontalFrontMain) {
+			bool vueMakesSense = false;
+
+			static int faceMult[6][3] = {
+				{ 1,1,-1 },{ 2,1,-1},{ 3,1,-1},{ 0,1,-1 },{ 1,0,ROTATE_90_COUNTERCLOCKWISE },{ 1,2,ROTATE_90_CLOCKWISE }
+			};
+			static int faceOffsets[6][4] = {
+				{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{ 0,0,0,0}
+			};
+			Mat fullImage = imread(prefix, IMREAD_UNCHANGED);
+			if (fullImage.empty()) {
+				std::cout << "Unable to open specified source image: " << prefix;
 				return 1;
+			}
+			int xMult = fullImage.cols / 4;
+			int yMult = fullImage.rows / 3;
+
+			if (!vueMakesSense) {
+				const Vec3f unit = { 1,1,1 };
+				// unfortunately vue does not appear to place cubemap boundaries where they should mathematically be, they can be off by multiple pixels. god knows why
+				// there appears to be no real logic behind the actual boundaries so we will simply measure....... (CRINGE)
+				int xBorders[2] = { 0,0 };
+				int yBorders[2] = { 0,0 };
+				int checkHeight = yMult / 2; // take half the height of a tile (if things made sense anyway) and go from left to right and vice versa to find the boundaries
+				int checkWidth = xMult / 2;
+				for (int x = 0; x < fullImage.cols; x++) {
+					for (int y = 0; y < checkHeight; y++) {
+						if (fullImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
+							xBorders[0] = x;
+							goto findBorder1;
+						}
+					}
+				}
+				findBorder1:
+				for (int x = fullImage.cols-1; x >= 0; x--) {
+					for (int y = 0; y < checkHeight; y++) {
+						if (fullImage.at<Vec3f>(y, x).dot(unit) != 0.0f) {
+							xBorders[1] = x+1;
+							goto findBorder2;
+						}
+					}
+				}
+				findBorder2:
+				for (int y = 0; y < fullImage.rows; y++) {
+					for (int x = 0; x < checkWidth; x++) {
+						if (fullImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
+							yBorders[0] = y;
+							goto findBorder3;
+						}
+					}
+				}
+				findBorder3:
+				for (int y = fullImage.rows-1; y >= 0; y--) {
+					for (int x = 0; x < checkWidth; x++) {
+						if (fullImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
+							yBorders[1] = y+1;
+							goto bordersfound;
+						}
+					}
+				}
+				bordersfound:
+				for (int i = 0; i < 6; i++) {
+					if (faceMult[i][0] == 1) {
+						faceOffsets[i][0] = xBorders[0] - xMult;
+						faceOffsets[i][1] = xBorders[1] - xMult * 2;
+					}
+					if (faceMult[i][0] == 2) {
+						faceOffsets[i][0] = xBorders[1] - xMult*2;
+					}
+					if (faceMult[i][1] == 1) {
+						faceOffsets[i][2] = yBorders[0] - yMult;
+						faceOffsets[i][3] = yBorders[1] - yMult * 2;
+					}
+					if (faceMult[i][1] == 2) {
+						faceOffsets[i][2] = yBorders[1] - yMult*2;
+					}
+				}
+			}
+
+			for (int i = 0; i < 6; i++) {
+				imgs[i] = fullImage(Range(faceMult[i][1] * yMult + faceOffsets[i][2], (faceMult[i][1] + 1) * yMult + faceOffsets[i][3]), Range(faceMult[i][0] * xMult + faceOffsets[i][0], (faceMult[i][0] + 1) * xMult + faceOffsets[i][1]));
+				if (faceMult[i][2] != -1) {
+					Mat rot = imgs[i].clone();
+					rotate(imgs[i], rot, faceMult[i][2]);
+					imgs[i] = rot;
+				}
+			}
+		}
+		else {
+			for (int i = 0; i < 6; i++) {
+				std::stringstream ss;
+				ss << prefix;
+				ss << "_";
+				ss << faceNames[i];
+				ss << ".hdr";
+				imgs[i] = imread(ss.str(), IMREAD_UNCHANGED);
+				if (imgs[i].empty()) {
+					std::cout << "Unable to open specified source image: " << ss.str();
+					return 1;
+				}
 			}
 		}
 		Mat output(sideResolution/2, sideResolution, CV_32F);
