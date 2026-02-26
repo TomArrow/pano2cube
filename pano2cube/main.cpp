@@ -130,6 +130,7 @@ int main(int argcO, char** argvO) {
 			}
 
 			for (int i = 0; i < 6; i++) {
+				std::cout << "Measured corrective vue cubemap offsets for face " << i << ": " << faceOffsets[i][0] << " " << faceOffsets[i][1] << " " << faceOffsets[i][2] << " " << faceOffsets[i][3] << "\n";
 				imgs[i] = fullImage(Range(faceMult[i][1] * yMult + faceOffsets[i][2], (faceMult[i][1] + 1) * yMult + faceOffsets[i][3]), Range(faceMult[i][0] * xMult + faceOffsets[i][0], (faceMult[i][0] + 1) * xMult + faceOffsets[i][1]));
 				if (faceMult[i][2] != -1) {
 					Mat rot = imgs[i].clone();
