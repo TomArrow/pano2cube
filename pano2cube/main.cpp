@@ -44,13 +44,6 @@ int main(int argcO, char** argvO) {
 	int cloudHeight = c->is_set() ? c->value() : 0;
 	bool doCloudTransform = !n->is_set();
 
-	if (doInverseJamme1) {
-		std::cout << "Jamme's mme_saveCubemap 1 format is not currently supported as input.\n";
-		std::cout << op.help();
-		std::cin.get();
-		return 1;
-	}
-
 	std::string filenameToLoad(args[0]);
 	int sideResolution = atoi(args[1].c_str());
 	std::string prefix(args[2]);
@@ -59,7 +52,7 @@ int main(int argcO, char** argvO) {
 	if (doInverse) {
 		Mat imgs[6];
 
-		if (doInverseJamme2) {
+		if (doInverseJamme2 || doInverseJamme1) {
 			static int faceMult[6][2] = {
 				{ 5,-1 },{ 4,-1},{ 3,-1},{ 2,-1 },{ 1,ROTATE_90_COUNTERCLOCKWISE },{ 0,ROTATE_90_CLOCKWISE }
 			};
@@ -69,8 +62,14 @@ int main(int argcO, char** argvO) {
 				return 1;
 			}
 			int xMult = fullImage.cols / 6;
+			int yMult = fullImage.rows / 6;
 			for (int i = 0; i < 6; i++) {
-				imgs[i] = fullImage(Range(0, fullImage.rows), Range(faceMult[i][0] * xMult, (faceMult[i][0] + 1) * xMult));
+				if (doInverseJamme1) {
+					imgs[i] = fullImage(Range((5-faceMult[i][0]) * yMult, ((5-faceMult[i][0]) + 1) * yMult), Range(0, fullImage.cols));
+				}
+				else {
+					imgs[i] = fullImage(Range(0, fullImage.rows), Range(faceMult[i][0] * xMult, (faceMult[i][0] + 1) * xMult));
+				}
 				if (faceMult[i][1] != -1) {
 					Mat rot = imgs[i].clone();
 					rotate(imgs[i], rot, faceMult[i][1]);
