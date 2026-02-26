@@ -22,7 +22,7 @@ int main(int argcO, char** argvO) {
 
 
 	popl::OptionParser op("Allowed options");
-	auto e = op.add<popl::Implicit<int>>("e", "equirect-from-cubemap", "Generate an equirectangular image from six cube faces (inverse mode). Optional: 0 for jk2 style cubmaps. 1 for vue 'Horizontal Front Main' cubemaps. For single image sources, the full source image filename should be specified as prefix.",0);
+	auto e = op.add<popl::Implicit<int>>("e", "equirect-from-cubemap", "Generate an equirectangular image from six cube faces (inverse mode). Optional: 0 for jk2 style cubmaps. 1 for vue 'Horizontal Front Main' cubemaps, 2 for jamme mme_saveCubemap 1 (vertical, not currently supported), 3 for jamme mme_saveCubemap 2 (horizontal). For single image sources, the full source image filename should be specified as prefix.",0);
 	auto c = op.add<popl::Implicit<int>>("c", "cloud", "Generate an image for a cloud layer instead of six cube faces",512);
 	auto n = op.add<popl::Switch>("n", "no-transform-cloud", "The resulting cloud image will not require tcMod transform, only tcMod scale");
 	auto r = op.add<popl::Switch>("r", "reflection", "Turn equirectangular into a refletionmap for tcgen environment. Since it only encodes a half circle, you get 2 variants (one side will always be mirrored to the other).");
@@ -30,7 +30,7 @@ int main(int argcO, char** argvO) {
 	auto args = op.non_option_args();
 
 	if (args.size() < 3) {
-		std::cout << "Need at least 3 arguments: Input file, side resolution, prefix[, rotation]";
+		std::cout << "Need at least 3 arguments: Input file, side resolution, prefix[, rotation]\n";
 		std::cout << op.help();
 		std::cin.get();
 		return 1;
@@ -39,8 +39,17 @@ int main(int argcO, char** argvO) {
 	bool doReflection = r->is_set();
 	bool doInverse = e->is_set();
 	bool doInverseVueHorizontalFrontMain = e->is_set() && e->value() == 1;
+	bool doInverseJamme1 = e->is_set() && e->value() == 2;
+	bool doInverseJamme2 = e->is_set() && e->value() == 3;
 	int cloudHeight = c->is_set() ? c->value() : 0;
 	bool doCloudTransform = !n->is_set();
+
+	if (doInverseJamme1) {
+		std::cout << "Jamme's mme_saveCubemap 1 format is not currently supported as input.\n";
+		std::cout << op.help();
+		std::cin.get();
+		return 1;
+	}
 
 	std::string filenameToLoad(args[0]);
 	int sideResolution = atoi(args[1].c_str());
@@ -50,7 +59,26 @@ int main(int argcO, char** argvO) {
 	if (doInverse) {
 		Mat imgs[6];
 
-		if (doInverseVueHorizontalFrontMain) {
+		if (doInverseJamme2) {
+			static int faceMult[6][2] = {
+				{ 5,-1 },{ 4,-1},{ 3,-1},{ 2,-1 },{ 1,ROTATE_90_COUNTERCLOCKWISE },{ 0,ROTATE_90_CLOCKWISE }
+			};
+			Mat fullImage = imread(prefix, IMREAD_UNCHANGED);
+			if (fullImage.empty()) {
+				std::cout << "Unable to open specified source image: " << prefix;
+				return 1;
+			}
+			int xMult = fullImage.cols / 6;
+			for (int i = 0; i < 6; i++) {
+				imgs[i] = fullImage(Range(0, fullImage.rows), Range(faceMult[i][0] * xMult, (faceMult[i][0] + 1) * xMult));
+				if (faceMult[i][1] != -1) {
+					Mat rot = imgs[i].clone();
+					rotate(imgs[i], rot, faceMult[i][1]);
+					imgs[i] = rot;
+				}
+			}
+		}
+		else if (doInverseVueHorizontalFrontMain) {
 			bool vueMakesSense = false;
 
 			static int faceMult[6][3] = {
