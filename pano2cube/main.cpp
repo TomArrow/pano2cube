@@ -26,6 +26,7 @@ int main(int argcO, char** argvO) {
 	auto c = op.add<popl::Implicit<int>>("c", "cloud", "Generate an image for a cloud layer instead of six cube faces",512);
 	auto n = op.add<popl::Switch>("n", "no-transform-cloud", "The resulting cloud image will not require tcMod transform, only tcMod scale");
 	auto r = op.add<popl::Switch>("r", "reflection", "Turn equirectangular into a refletionmap for tcgen environment. Since it only encodes a half circle, you get 2 variants (one side will always be mirrored to the other).");
+	auto E = op.add<popl::Value<std::string>>("E", "edge-detect-image", "When doing edge detection for a cubemap image (e.g. vue one), use this image as reference instead. Useful when using the z-buffer image as input, as its borders are wrong.");
 	op.parse(argcO, argvO);
 	auto args = op.non_option_args();
 
@@ -95,6 +96,7 @@ int main(int argcO, char** argvO) {
 			int yMult = fullImage.rows / 3;
 
 			if (!vueMakesSense) {
+				Mat detectImage = E->is_set() ? imread(E->value(), IMREAD_UNCHANGED) : fullImage;
 				const Vec3f unit = { 1,1,1 };
 				// unfortunately vue does not appear to place cubemap boundaries where they should mathematically be, they can be off by multiple pixels. god knows why
 				// there appears to be no real logic behind the actual boundaries so we will simply measure....... (CRINGE)
@@ -102,36 +104,36 @@ int main(int argcO, char** argvO) {
 				int yBorders[2] = { 0,0 };
 				int checkHeight = yMult / 2; // take half the height of a tile (if things made sense anyway) and go from left to right and vice versa to find the boundaries
 				int checkWidth = xMult / 2;
-				for (int x = 0; x < fullImage.cols; x++) {
+				for (int x = 0; x < detectImage.cols; x++) {
 					for (int y = 0; y < checkHeight; y++) {
-						if (fullImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
+						if (detectImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
 							xBorders[0] = x;
 							goto findBorder1;
 						}
 					}
 				}
 				findBorder1:
-				for (int x = fullImage.cols-1; x >= 0; x--) {
+				for (int x = detectImage.cols-1; x >= 0; x--) {
 					for (int y = 0; y < checkHeight; y++) {
-						if (fullImage.at<Vec3f>(y, x).dot(unit) != 0.0f) {
+						if (detectImage.at<Vec3f>(y, x).dot(unit) != 0.0f) {
 							xBorders[1] = x+1;
 							goto findBorder2;
 						}
 					}
 				}
 				findBorder2:
-				for (int y = 0; y < fullImage.rows; y++) {
+				for (int y = 0; y < detectImage.rows; y++) {
 					for (int x = 0; x < checkWidth; x++) {
-						if (fullImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
+						if (detectImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
 							yBorders[0] = y;
 							goto findBorder3;
 						}
 					}
 				}
 				findBorder3:
-				for (int y = fullImage.rows-1; y >= 0; y--) {
+				for (int y = detectImage.rows-1; y >= 0; y--) {
 					for (int x = 0; x < checkWidth; x++) {
-						if (fullImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
+						if (detectImage.at<Vec3f>(y,x).dot(unit) != 0.0f) {
 							yBorders[1] = y+1;
 							goto bordersfound;
 						}
